@@ -1,1 +1,137 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kabbu Scorekeeper</title><style>:root{--bg:#f6f5f1;--card:#fffefa;--ink:#24231f;--muted:#716f68;--line:#ddd9d1;--accent:#006b70;--lead:#3d7924;--danger:#a12c7b;font-family:system-ui,sans-serif}*{box-sizing:border-box;margin:0}body{min-height:100dvh;background:var(--bg);color:var(--ink)}button,input{font:inherit;color:inherit}.app{max-width:1100px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px}.top h1{font-size:1.65rem}.top p{margin-top:4px;font-size:.9rem;color:var(--muted)}.controls{display:flex;gap:8px}.btn{border:0;border-radius:8px;min-height:42px;padding:9px 14px;cursor:pointer;font-weight:700;background:#e9e6df}.save{background:var(--accent);color:#fff}.reset{color:var(--danger)}.scoreboard,.history{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}.players{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.player{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff}.player label{display:block;margin-bottom:6px;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}.name{width:100%;border:0;border-bottom:1px solid var(--line);padding:5px 1px 7px;background:transparent;font-weight:700;outline:none}.score{width:100%;margin-top:12px;border:1px solid var(--line);border-radius:8px;padding:12px 6px;background:#fcfcfa;text-align:center;font-size:1.8rem;font-weight:700;outline:none}.score:focus,.name:focus{border-color:var(--accent);box-shadow:0 0 0 2px #006b7030}.invalid{border-color:var(--danger)!important}.total{margin-top:12px;border-radius:8px;padding:9px;background:#f4f2ed}.leading{outline:1px solid var(--lead)}.total span{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}.total strong{display:block;margin-top:2px;font-size:1.55rem;font-variant-numeric:tabular-nums}.leading strong{color:var(--lead)}.meta{display:flex;justify-content:space-between;gap:12px;margin-top:13px;font-size:.85rem;color:var(--muted)}.history{margin-top:14px;font-size:.84rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:700px){.app{padding:10px}.top{align-items:flex-start;flex-direction:column}.players{gap:6px}.player{padding:7px}.name{font-size:.8rem}.score{margin-top:8px;padding:10px 3px;font-size:1.25rem}.total{margin-top:8px;padding:7px}.total strong{font-size:1.2rem}.player label{font-size:.62rem}.controls{width:100%}.btn{flex:1;padding:8px}.scoreboard{padding:7px}}</style></head><body><main class="app"><header class="top"><div><h1>Kabbu scorekeeper</h1><p>Enter each round's score. Use a minus sign for negative scores.</p></div><div class="controls"><button class="btn save" id="save">Save round</button><button class="btn reset" id="reset">Reset</button></div></header><section class="scoreboard"><div class="players" id="players"></div><div class="meta"><span id="roundLabel">Round 1</span><span>Lowest total is leading</span></div></section><section class="history"><strong>Recent rounds</strong><span id="historyText">No rounds saved yet.</span></section></main><script>const playerData=[{name:'Player 1'},{name:'Player 2'},{name:'Player 3'},{name:'Player 4'}],state={round:1,totals:[0,0,0,0],history:[]},playersEl=document.querySelector('#players');function render(){let low=Math.min(...state.totals);playersEl.innerHTML=playerData.map((p,i)=>`<article class="player"><label>Player ${i+1}</label><input class="name" id="name-${i}" value="${p.name}"><label style="margin-top:12px">This round</label><input class="score" id="score-${i}" type="text" inputmode="text" autocomplete="off" value="0" aria-label="${p.name} score. Negative scores allowed."><div class="total ${state.totals[i]===low?'leading':''}"><span>Running total</span><strong>${state.totals[i]}</strong></div></article>`).join('')}function save(){let bad=false,scores=playerData.map((p,i)=>{p.name=document.querySelector('#name-'+i).value.trim()||`Player ${i+1}`;let el=document.querySelector('#score-'+i),v=el.value.trim();let n=/^-?\d+$/.test(v)?Number(v):NaN;el.classList.toggle('invalid',Number.isNaN(n));bad||=Number.isNaN(n);return n});if(bad)return;scores.forEach((s,i)=>state.totals[i]+=s);state.history.unshift(`Round ${state.round}: ${scores.join(' · ')}`);state.history=state.history.slice(0,8);state.round++;document.querySelector('#roundLabel').textContent=`Round ${state.round}`;document.querySelector('#historyText').textContent=state.history.join(' | ');render()}document.querySelector('#save').onclick=save;document.querySelector('#reset').onclick=()=>{state.round=1;state.totals=[0,0,0,0];state.history=[];document.querySelector('#roundLabel').textContent='Round 1';document.querySelector('#historyText').textContent='No rounds saved yet.';render()};render();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kabbu Scorekeeper</title>
+  <style>
+    :root { color-scheme: dark; --bg:#10151f; --panel:#192230; --panel-2:#222d3e; --text:#eef4ff; --muted:#aab8cc; --accent:#65c7a5; --line:#34445a; --danger:#ef7f7f; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-width:320px; background:linear-gradient(150deg,#10151f,#152334); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:32px 20px 52px; }
+    h1 { margin:0; font-size:clamp(1.9rem,4vw,2.7rem); }
+    h2 { margin:0 0 16px; font-size:1.2rem; }
+    .subtitle { color:var(--muted); margin:8px 0 28px; }
+    .card { background:rgba(25,34,48,.94); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 16px 36px rgba(0,0,0,.16); margin:16px 0; }
+    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    label { color:var(--muted); font-size:.85rem; font-weight:700; }
+    input { width:100%; margin-top:6px; border:1px solid var(--line); border-radius:9px; background:#101722; color:var(--text); padding:11px 10px; font:inherit; }
+    input:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:18px; }
+    button { border:0; border-radius:9px; background:var(--accent); color:#09221b; cursor:pointer; font:700 1rem inherit; padding:11px 15px; }
+    button:hover { filter:brightness(1.07); }
+    .secondary { background:transparent; color:var(--muted); border:1px solid var(--line); }
+    .danger { color:#ffd2d2; border-color:#774646; }
+    .totals { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .total { padding:14px; background:var(--panel-2); border-radius:11px; min-width:0; }
+    .total-name { color:var(--muted); font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .total-score { margin-top:3px; font-size:1.7rem; font-weight:800; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:620px; }
+    th,td { padding:11px 10px; border-bottom:1px solid var(--line); text-align:left; }
+    th { color:var(--muted); font-size:.83rem; }
+    td:first-child { color:var(--muted); font-weight:700; }
+    td input { width:84px; margin:0; padding:8px; }
+    .empty { color:var(--muted); text-align:center; padding:22px; }
+    .hint { color:var(--muted); font-size:.88rem; margin:0; }
+    @media (max-width:680px) { .grid,.totals { grid-template-columns:repeat(2,minmax(0,1fr)); } main { padding:22px 14px 38px; } .card { padding:16px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kabbu Scorekeeper</h1>
+    <p class="subtitle">Your player names and game history stay on this browser/device.</p>
+
+    <section class="card">
+      <h2>Players</h2>
+      <div class="grid" id="player-fields"></div>
+    </section>
+
+    <section class="card">
+      <h2>Add round</h2>
+      <div class="grid" id="round-fields"></div>
+      <div class="actions"><button id="add-round" type="button">Add round</button><p class="hint">Enter all four scores, then add the round.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Running totals</h2>
+      <div class="totals" id="totals"></div>
+    </section>
+
+    <section class="card">
+      <div class="actions" style="margin-top:0;justify-content:space-between"><h2 style="margin:0">Round history</h2><button class="secondary danger" id="clear-history" type="button">Clear history</button></div>
+      <p class="hint" style="margin:10px 0 14px">Edit any score below; totals update immediately.</p>
+      <div class="table-wrap"><table><thead id="history-head"></thead><tbody id="history-body"></tbody></table></div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'kabbu-scorekeeper-v2';
+    const defaultState = { players: ['Player 1', 'Player 2', 'Player 3', 'Player 4'], rounds: [] };
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && Array.isArray(saved.players) && saved.players.length === 4 && Array.isArray(saved.rounds)) {
+          return { players: saved.players.map((name, i) => String(name || `Player ${i + 1}`)), rounds: saved.rounds.map(normalizeRound) };
+        }
+      } catch (_) {}
+      return structuredClone(defaultState);
+    }
+
+    function normalizeRound(round) {
+      return Array.from({ length: 4 }, (_, i) => Number(round?.[i]) || 0);
+    }
+
+    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function escapeHtml(value) { const el = document.createElement('span'); el.textContent = value; return el.innerHTML; }
+
+    function renderPlayers() {
+      document.getElementById('player-fields').innerHTML = state.players.map((name, i) => `
+        <label>Player ${i + 1}<input class="player-name" data-index="${i}" value="${escapeHtml(name)}" maxlength="32" autocomplete="off"></label>`).join('');
+      document.querySelectorAll('.player-name').forEach(input => input.addEventListener('input', event => {
+        const index = Number(event.target.dataset.index);
+        state.players[index] = event.target.value.trim() || `Player ${index + 1}`;
+        saveState(); renderRoundFields(); renderTotals(); renderHistory();
+      }));
+    }
+
+    function renderRoundFields() {
+      document.getElementById('round-fields').innerHTML = state.players.map((name, i) => `
+        <label>${escapeHtml(name)}<input class="new-score" data-index="${i}" type="number" inputmode="numeric" value="0" step="1"></label>`).join('');
+    }
+
+    function totals() { return state.rounds.reduce((sum, round) => sum.map((score, i) => score + round[i]), [0, 0, 0, 0]); }
+
+    function renderTotals() {
+      const scores = totals();
+      document.getElementById('totals').innerHTML = scores.map((score, i) => `<div class="total"><div class="total-name">${escapeHtml(state.players[i])}</div><div class="total-score">${score}</div></div>`).join('');
+    }
+
+    function renderHistory() {
+      document.getElementById('history-head').innerHTML = `<tr><th>Round</th>${state.players.map(name => `<th>${escapeHtml(name)}</th>`).join('')}</tr>`;
+      const body = document.getElementById('history-body');
+      if (!state.rounds.length) { body.innerHTML = '<tr><td class="empty" colspan="5">No rounds yet.</td></tr>'; return; }
+      body.innerHTML = state.rounds.map((round, roundIndex) => `<tr><td>${roundIndex + 1}</td>${round.map((score, playerIndex) => `<td><input aria-label="Round ${roundIndex + 1}, ${escapeHtml(state.players[playerIndex])}" class="history-score" data-round="${roundIndex}" data-player="${playerIndex}" type="number" inputmode="numeric" value="${score}" step="1"></td>`).join('')}</tr>`).join('');
+      document.querySelectorAll('.history-score').forEach(input => input.addEventListener('input', event => {
+        const { round, player } = event.target.dataset;
+        state.rounds[Number(round)][Number(player)] = Number(event.target.value) || 0;
+        saveState(); renderTotals();
+      }));
+    }
+
+    document.getElementById('add-round').addEventListener('click', () => {
+      const scores = Array.from(document.querySelectorAll('.new-score')).map(input => Number(input.value) || 0);
+      state.rounds.push(scores); saveState(); renderTotals(); renderHistory(); renderRoundFields();
+    });
+
+    document.getElementById('clear-history').addEventListener('click', () => {
+      if (!state.rounds.length || !confirm('Clear every saved round?')) return;
+      state.rounds = []; saveState(); renderTotals(); renderHistory();
+    });
+
+    renderPlayers(); renderRoundFields(); renderTotals(); renderHistory();
+  </script>
+</body>
+</html>
