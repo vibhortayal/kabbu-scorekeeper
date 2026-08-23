@@ -11,9 +11,11 @@
     main { max-width:1080px; margin:0 auto; padding:32px 20px 52px; }
     h1 { margin:0; font-size:clamp(1.9rem,4vw,2.7rem); }
     h2 { margin:0 0 16px; font-size:1.2rem; }
+    h3 { margin:0 0 10px; font-size:1rem; }
     .subtitle { color:var(--muted); margin:8px 0 28px; }
     .card { background:rgba(25,34,48,.94); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 16px 36px rgba(0,0,0,.16); margin:16px 0; }
     .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .rules-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
     label { color:var(--muted); font-size:.85rem; font-weight:700; }
     input { width:100%; margin-top:6px; border:1px solid var(--line); border-radius:9px; background:#101722; color:var(--text); padding:11px 10px; font:inherit; }
     input:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
@@ -34,7 +36,11 @@
     td input { width:84px; margin:0; padding:8px; }
     .empty { color:var(--muted); text-align:center; padding:22px; }
     .hint { color:var(--muted); font-size:.88rem; margin:0; }
-    @media (max-width:680px) { .grid,.totals { grid-template-columns:repeat(2,minmax(0,1fr)); } main { padding:22px 14px 38px; } .card { padding:16px; } }
+    .rule-list { margin:0; padding-left:20px; color:var(--text); }
+    .rule-list li { margin:0 0 9px; }
+    .score-table { min-width:0; }
+    .score-table th,.score-table td { padding:8px 0; }
+    @media (max-width:680px) { .grid,.totals,.rules-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } main { padding:22px 14px 38px; } .card { padding:16px; } .rules-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -50,7 +56,7 @@
     <section class="card">
       <h2>Add round</h2>
       <div class="grid" id="round-fields"></div>
-      <div class="actions"><button id="add-round" type="button">Add round</button><p class="hint">Enter all four scores, then add the round.</p></div>
+      <div class="actions"><button id="add-round" type="button">Add round</button><p class="hint">Enter all four scores (negative scores are allowed), then add the round.</p></div>
     </section>
 
     <section class="card">
@@ -60,8 +66,44 @@
 
     <section class="card">
       <div class="actions" style="margin-top:0;justify-content:space-between"><h2 style="margin:0">Round history</h2><button class="secondary danger" id="clear-history" type="button">Clear history</button></div>
-      <p class="hint" style="margin:10px 0 14px">Edit any score below; totals update immediately.</p>
+      <p class="hint" style="margin:10px 0 14px">Edit any score below, including a negative score; totals update immediately.</p>
       <div class="table-wrap"><table><thead id="history-head"></thead><tbody id="history-body"></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Rules &amp; scoring</h2>
+      <div class="rules-grid">
+        <div>
+          <h3>Card actions</h3>
+          <ul class="rule-list">
+            <li><strong>A–6:</strong> Replace one of your cards.</li>
+            <li><strong>7–8:</strong> See one of your own cards.</li>
+            <li><strong>9–10:</strong> See someone else’s card.</li>
+            <li><strong>Jack:</strong> Replace one of yours with another player’s card without seeing it.</li>
+            <li><strong>Queen:</strong> Replace one of yours with another player’s card after seeing it.</li>
+            <li><strong>King:</strong> Flush it.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Card points</h3>
+          <table class="score-table">
+            <tbody>
+              <tr><th>Ace</th><td>−1 point</td></tr>
+              <tr><th>2–9</th><td>Face value</td></tr>
+              <tr><th>10, Jack, Queen</th><td>10 points</td></tr>
+              <tr><th>King</th><td>30 points</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <h3>Play rules</h3>
+        <ul class="rule-list">
+          <li>You can only pick up from the deck.</li>
+          <li>If someone discards a card—for example, a 6—and you have a 6 among your four cards, you may discard your 6 too. This lets you reduce your hand to three cards.</li>
+          <li>If you know another player has a matching card—for example, a 6—you may discard that card for them and replace it with one of your cards. This also lets you reduce your hand to three cards.</li>
+        </ul>
+      </div>
     </section>
   </main>
 
@@ -80,26 +122,23 @@
       return structuredClone(defaultState);
     }
 
-    function normalizeRound(round) {
-      return Array.from({ length: 4 }, (_, i) => Number(round?.[i]) || 0);
-    }
-
+    function normalizeRound(round) { return Array.from({ length: 4 }, (_, i) => Number(round?.[i]) || 0); }
     function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     function escapeHtml(value) { const el = document.createElement('span'); el.textContent = value; return el.innerHTML; }
 
     function renderPlayers() {
       document.getElementById('player-fields').innerHTML = state.players.map((name, i) => `
         <label>Player ${i + 1}<input class="player-name" data-index="${i}" value="${escapeHtml(name)}" maxlength="32" autocomplete="off"></label>`).join('');
-      document.querySelectorAll('.player-name').forEach(input => input.addEventListener('input', event => {
+      document.querySelectorAll('.player-name').forEach(input => input.addEventListener('change', event => {
         const index = Number(event.target.dataset.index);
         state.players[index] = event.target.value.trim() || `Player ${index + 1}`;
-        saveState(); renderRoundFields(); renderTotals(); renderHistory();
+        saveState(); renderPlayers(); renderRoundFields(); renderTotals(); renderHistory();
       }));
     }
 
     function renderRoundFields() {
       document.getElementById('round-fields').innerHTML = state.players.map((name, i) => `
-        <label>${escapeHtml(name)}<input class="new-score" data-index="${i}" type="number" inputmode="numeric" value="0" step="1"></label>`).join('');
+        <label>${escapeHtml(name)}<input class="new-score" data-index="${i}" type="number" inputmode="decimal" value="0" step="1"></label>`).join('');
     }
 
     function totals() { return state.rounds.reduce((sum, round) => sum.map((score, i) => score + round[i]), [0, 0, 0, 0]); }
@@ -113,7 +152,7 @@
       document.getElementById('history-head').innerHTML = `<tr><th>Round</th>${state.players.map(name => `<th>${escapeHtml(name)}</th>`).join('')}</tr>`;
       const body = document.getElementById('history-body');
       if (!state.rounds.length) { body.innerHTML = '<tr><td class="empty" colspan="5">No rounds yet.</td></tr>'; return; }
-      body.innerHTML = state.rounds.map((round, roundIndex) => `<tr><td>${roundIndex + 1}</td>${round.map((score, playerIndex) => `<td><input aria-label="Round ${roundIndex + 1}, ${escapeHtml(state.players[playerIndex])}" class="history-score" data-round="${roundIndex}" data-player="${playerIndex}" type="number" inputmode="numeric" value="${score}" step="1"></td>`).join('')}</tr>`).join('');
+      body.innerHTML = state.rounds.map((round, roundIndex) => `<tr><td>${roundIndex + 1}</td>${round.map((score, playerIndex) => `<td><input aria-label="Round ${roundIndex + 1}, ${escapeHtml(state.players[playerIndex])}" class="history-score" data-round="${roundIndex}" data-player="${playerIndex}" type="number" inputmode="decimal" value="${score}" step="1"></td>`).join('')}</tr>`).join('');
       document.querySelectorAll('.history-score').forEach(input => input.addEventListener('input', event => {
         const { round, player } = event.target.dataset;
         state.rounds[Number(round)][Number(player)] = Number(event.target.value) || 0;
