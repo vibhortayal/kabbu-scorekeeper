@@ -19,6 +19,11 @@
     label { color:var(--muted); font-size:.85rem; font-weight:700; }
     input { width:100%; margin-top:6px; border:1px solid var(--line); border-radius:9px; background:#101722; color:var(--text); padding:11px 10px; font:inherit; }
     input:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+    .score-input-row { display:flex; align-items:stretch; gap:6px; margin-top:6px; }
+    .score-input-row input { margin-top:0; }
+    .sign-toggle { flex:0 0 auto; width:40px; margin:0; padding:0; border:1px solid var(--line); border-radius:9px; background:#1b2635; color:var(--accent); font:800 1.05rem inherit; cursor:pointer; }
+    .sign-toggle:hover { filter:brightness(1.15); }
+    .sign-toggle[data-negative="true"] { background:var(--danger); color:#3a0f0f; border-color:transparent; }
     .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:18px; }
     button { border:0; border-radius:9px; background:var(--accent); color:#09221b; cursor:pointer; font:700 1rem inherit; padding:11px 15px; }
     button:hover { filter:brightness(1.07); }
@@ -29,11 +34,12 @@
     .total-name { color:var(--muted); font-size:.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .total-score { margin-top:3px; font-size:1.7rem; font-weight:800; }
     .table-wrap { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; min-width:620px; }
+    table { width:100%; border-collapse:collapse; min-width:700px; }
     th,td { padding:11px 10px; border-bottom:1px solid var(--line); text-align:left; }
     th { color:var(--muted); font-size:.83rem; }
     td:first-child { color:var(--muted); font-weight:700; }
-    td input { width:84px; margin:0; padding:8px; }
+    td .score-input-row { margin-top:0; width:118px; }
+    td .score-input-row input { width:72px; padding:8px; }
     .empty { color:var(--muted); text-align:center; padding:22px; }
     .hint { color:var(--muted); font-size:.88rem; margin:0; }
     .rule-list { margin:0; padding-left:20px; color:var(--text); }
@@ -56,7 +62,7 @@
     <section class="card">
       <h2>Add round</h2>
       <div class="grid" id="round-fields"></div>
-      <div class="actions"><button id="add-round" type="button">Add round</button><p class="hint">Enter all four scores (negative scores are allowed), then add the round.</p></div>
+      <div class="actions"><button id="add-round" type="button">Add round</button><p class="hint">Enter all four scores, then add the round. Tap ± to switch a score negative.</p></div>
     </section>
 
     <section class="card">
@@ -66,7 +72,7 @@
 
     <section class="card">
       <div class="actions" style="margin-top:0;justify-content:space-between"><h2 style="margin:0">Round history</h2><button class="secondary danger" id="clear-history" type="button">Clear history</button></div>
-      <p class="hint" style="margin:10px 0 14px">Edit any score below, including a negative score; totals update immediately.</p>
+      <p class="hint" style="margin:10px 0 14px">Edit any score below, including negative scores via ±; totals update immediately.</p>
       <div class="table-wrap"><table><thead id="history-head"></thead><tbody id="history-body"></tbody></table></div>
     </section>
 
@@ -126,6 +132,17 @@
     function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     function escapeHtml(value) { const el = document.createElement('span'); el.textContent = value; return el.innerHTML; }
 
+    function scoreInputRow({ id, label, value, dataAttrs }) {
+      const attrs = Object.entries(dataAttrs || {}).map(([key, val]) => `data-${key}="${val}"`).join(' ');
+      const magnitude = Math.abs(value);
+      const negative = value < 0;
+      return `
+        <div class="score-input-row">
+          <button type="button" class="sign-toggle" data-negative="${negative}" ${attrs} aria-label="Toggle sign for ${escapeHtml(label)}">${negative ? '−' : '+'}</button>
+          <input class="${id}" ${attrs} type="number" inputmode="numeric" min="0" step="1" value="${magnitude}" aria-label="${escapeHtml(label)}">
+        </div>`;
+    }
+
     function renderPlayers() {
       document.getElementById('player-fields').innerHTML = state.players.map((name, i) => `
         <label>Player ${i + 1}<input class="player-name" data-index="${i}" value="${escapeHtml(name)}" maxlength="32" autocomplete="off"></label>`).join('');
@@ -138,7 +155,26 @@
 
     function renderRoundFields() {
       document.getElementById('round-fields').innerHTML = state.players.map((name, i) => `
-        <label>${escapeHtml(name)}<input class="new-score" data-index="${i}" type="number" inputmode="decimal" value="0" step="1"></label>`).join('');
+        <label>${escapeHtml(name)}${scoreInputRow({ id: 'new-score', label: name, value: 0, dataAttrs: { index: i } })}</label>`).join('');
+      bindSignToggles('#round-fields');
+    }
+
+    function bindSignToggles(scopeSelector) {
+      document.querySelectorAll(`${scopeSelector} .sign-toggle`).forEach(btn => btn.addEventListener('click', () => {
+        const row = btn.parentElement;
+        const input = row.querySelector('input');
+        const negative = btn.dataset.negative !== 'true';
+        btn.dataset.negative = String(negative);
+        btn.textContent = negative ? '−' : '+';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }));
+    }
+
+    function readSignedValue(row) {
+      const btn = row.querySelector('.sign-toggle');
+      const input = row.querySelector('input');
+      const magnitude = Math.abs(Number(input.value) || 0);
+      return btn.dataset.negative === 'true' ? -magnitude : magnitude;
     }
 
     function totals() { return state.rounds.reduce((sum, round) => sum.map((score, i) => score + round[i]), [0, 0, 0, 0]); }
@@ -152,16 +188,18 @@
       document.getElementById('history-head').innerHTML = `<tr><th>Round</th>${state.players.map(name => `<th>${escapeHtml(name)}</th>`).join('')}</tr>`;
       const body = document.getElementById('history-body');
       if (!state.rounds.length) { body.innerHTML = '<tr><td class="empty" colspan="5">No rounds yet.</td></tr>'; return; }
-      body.innerHTML = state.rounds.map((round, roundIndex) => `<tr><td>${roundIndex + 1}</td>${round.map((score, playerIndex) => `<td><input aria-label="Round ${roundIndex + 1}, ${escapeHtml(state.players[playerIndex])}" class="history-score" data-round="${roundIndex}" data-player="${playerIndex}" type="number" inputmode="decimal" value="${score}" step="1"></td>`).join('')}</tr>`).join('');
+      body.innerHTML = state.rounds.map((round, roundIndex) => `<tr><td>${roundIndex + 1}</td>${round.map((score, playerIndex) => `<td>${scoreInputRow({ id: 'history-score', label: `Round ${roundIndex + 1}, ${state.players[playerIndex]}`, value: score, dataAttrs: { round: roundIndex, player: playerIndex } })}</td>`).join('')}</tr>`).join('');
       document.querySelectorAll('.history-score').forEach(input => input.addEventListener('input', event => {
+        const row = event.target.closest('.score-input-row');
         const { round, player } = event.target.dataset;
-        state.rounds[Number(round)][Number(player)] = Number(event.target.value) || 0;
+        state.rounds[Number(round)][Number(player)] = readSignedValue(row);
         saveState(); renderTotals();
       }));
+      bindSignToggles('#history-body');
     }
 
     document.getElementById('add-round').addEventListener('click', () => {
-      const scores = Array.from(document.querySelectorAll('.new-score')).map(input => Number(input.value) || 0);
+      const scores = Array.from(document.querySelectorAll('#round-fields .score-input-row')).map(readSignedValue);
       state.rounds.push(scores); saveState(); renderTotals(); renderHistory(); renderRoundFields();
     });
 
